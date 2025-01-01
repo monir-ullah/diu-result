@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Student Result Viewer</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      margin: 20px;
+    }
+    canvas {
+      width: 80%;
+      margin: auto;
+    }
+    .course-list {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      margin: 20px 0;
+    }
+    .course-item {
+      margin: 10px;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+      flex: 1 1 calc(33% - 20px);
+      box-sizing: border-box;
+    }
+    .course-item h3 {
+      margin-bottom: 8px;
+    }
+    .course-item p {
+      margin: 4px 0;
+    }
+    #searchField {
+      margin-bottom: 20px;
+      padding: 8px;
+      width: 100%;
+      max-width: 400px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Student Result Viewer</h1>
+  
+    <label for="semesterId">Semester ID:</label>
+    <select id="semesterId">
+    <option value="" disabled>Select Semester ID</option>
+    <option value="241" disabled>Spring 2024</option>
+    <option value="243" selected>Fall 2024</option>
+    <option value="233" disabled>Fall 2023</option>
+    <option value="243" disabled>Summer 2025</option>
+    <!-- Add more options as needed -->
+    </select>
+
+  <br><br>
+
+  <label for="studentId">Student ID:</label>
+  <input type="text" id="studentId" placeholder="Enter Student ID"><br><br>
+
+  <button onclick="fetchData()">Show Result</button>
+  <br><br>
+
+  <div class="datawrapper">
+    <div id="sgpaContainer">
+        <h3>SGPA: <span id="sgpaValue"></span></h3>
+      </div>
+      
+      <canvas id="resultChart"></canvas>
+      <div class="course-list" id="courseList"></div>
+  </div>
+
+  
+  
+
+  <script>
+    async function fetchData() {
+        const semesterId = document.getElementById('semesterId').value;
+        const studentId = document.getElementById('studentId').value;
+        document.getElementById('sgpaContainer').innerHTML = '';
+        document.getElementById('resultChart').innerHTML = '';
+        document.getElementById('courseList').innerHTML = '';
+    
+        if (!semesterId || !studentId) {
+            alert('Please enter both Semester ID and Student ID.');
+            return;
+        }
+    
+        try {
+            const response = await fetch(`http://203.190.10.22:8189/result?grecaptcha&semesterId=${semesterId}&studentId=${studentId}`, {
+             mode: 'cors'  // Allows CORS for insecure endpoints
+            });
+            if (!response.ok) throw new Error('Network response was not ok');
+            
+            const data = await response.json();
+    
+            if (data.length === 0) {
+                document.getElementById('sgpaContainer').innerHTML = '<p>Result Not Found or Not Published Yet.</p>';
+            } else {
+                // Display courses in the UI
+                const courseList = document.getElementById('courseList');
+                courseList.innerHTML = '';  // Clear previous results
+                data.forEach(course => {
+                    const courseItem = document.createElement('div');
+                    courseItem.className = 'course-item';
+                    courseItem.innerHTML = `
+                        <h3>${course.courseTitle}</h3>
+                        <p>Point Equivalent: ${course.pointEquivalent}</p>
+                        <p>Grade: ${course.gradeLetter}</p>
+                    `;
+                    courseList.appendChild(courseItem);
+                });
+    
+                // Prepare data for the chart
+                const labels = data.map(course => course.courseTitle);
+                const values = data.map(course => course.pointEquivalent);
+    
+                // Clear and regenerate the chart
+                const ctx = document.getElementById('resultChart').getContext('2d');
+                ctx.canvas.width = ctx.canvas.width;  // Clear the canvas
+                new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: 'Point Equivalent',
+                            data: values,
+                            backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                            borderColor: 'rgba(75, 192, 192, 1)',
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        scales: {
+                            y: {
+                                beginAtZero: true
+                            }
+                        }
+                    }
+                });
+    
+                // Display SGPA
+                const sgpaContainer = document.getElementById('sgpaContainer');
+                sgpaContainer.innerHTML = `<h3>SGPA: ${data[0]?.cgpa || 'N/A'}</h3>`;
+            }
+        } catch (error) {
+            console.error('Error fetching data:', error);
+        }
+    }
+    </script>
+    
+</body>
+</html>
